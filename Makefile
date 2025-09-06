@@ -1,6 +1,6 @@
 # Depth Anything V2 Inference Makefile
 
-.PHONY: inference help clean setup download-model
+.PHONY: inference help clean setup download-model upload-model
 
 # Default target
 help:
@@ -8,6 +8,7 @@ help:
 	@echo "  inference     - Run depth estimation inference on images"
 	@echo "  setup         - Create input/output directories"
 	@echo "  download-model - Download pre-trained model checkpoints"
+	@echo "  upload-model  - Upload neuron model checkpoint to S3 bucket"
 	@echo "  clean         - Remove output directory"
 	@echo "  help          - Show this help message"
 
@@ -33,6 +34,16 @@ download-model:
 	@echo "Downloading Depth Anything V2 model checkpoints..."
 	@chmod +x download_models.sh
 	./download_models.sh --all
+
+# Upload neuron model checkpoint to S3
+upload-model:
+	@echo "Uploading neuron model checkpoint to S3..."
+	@if [ ! -f "compiled-models/depth_anything_v2_vits_neuron_518.pt" ]; then \
+		echo "Error: Model checkpoint not found at checkpoints/depth_anything_v2_vits_neuron_518pt"; \
+		exit 1; \
+	fi
+	aws s3 cp checkpoints/depth_anything_v2_vits_neuron_518.pt s3://wbg-model-checkpoints/
+	@echo "Model uploaded successfully to s3://wbg-model-checkpoints/"
 
 # Clean output directory
 clean:
