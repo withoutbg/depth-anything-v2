@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Deployment Target
+
+- **AWS Inf1 instance**: Model will be deployed on AWS Inferentia instances
+- **Torch Neuron compilation**: Requires compilation with Torch Neuron for optimized inference
+- **Python 3.9**: Target Python version (AWS no longer maintaining newer versions for this setup)
+- **ML Pipeline**: Serves as upstream model in larger machine learning pipeline
+
 ## Development Commands
 
 This project uses `uv` as the package manager and uses Make for common tasks:
