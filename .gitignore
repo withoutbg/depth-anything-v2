@@ -202,3 +202,6 @@ logs/
 *.tif
 *.gif
 *.webp
+
+# Neuron environment
+aws_neuron_venv_pytorch_inf1/
