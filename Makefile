@@ -38,11 +38,11 @@ download-model:
 # Upload neuron model checkpoint to S3
 upload-model:
 	@echo "Uploading neuron model checkpoint to S3..."
-	@if [ ! -f "compiled-models/depth_anything_v2_vits_neuron_518.pt" ]; then \
-		echo "Error: Model checkpoint not found at checkpoints/depth_anything_v2_vits_neuron_518pt"; \
+	@if [ ! -f "compiled_models/depth_anything_v2_vits_inf1_518.pt" ]; then \
+		echo "Error: Model checkpoint not found at compiled_models/depth_anything_v2_vits_inf1_518.pt"; \
 		exit 1; \
 	fi
-	aws s3 cp checkpoints/depth_anything_v2_vits_neuron_518.pt s3://wbg-model-checkpoints/
+	aws s3 cp compiled_models/depth_anything_v2_vits_inf1_518.pt s3://wbg-model-checkpoints/
 	@echo "Model uploaded successfully to s3://wbg-model-checkpoints/"
 
 # Clean output directory
