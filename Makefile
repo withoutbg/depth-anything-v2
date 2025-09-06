@@ -1,6 +1,6 @@
 # Depth Anything V2 Inference Makefile
 
-.PHONY: inference help clean setup download-model upload-model
+.PHONY: inference help clean setup download-model upload-model upload-output
 
 # Default target
 help:
@@ -9,6 +9,7 @@ help:
 	@echo "  setup         - Create input/output directories"
 	@echo "  download-model - Download pre-trained model checkpoints"
 	@echo "  upload-model  - Upload neuron model checkpoint to S3 bucket"
+	@echo "  upload-output - Upload output_depth_inf1 directory to S3 bucket"
 	@echo "  clean         - Remove output directory"
 	@echo "  help          - Show this help message"
 
@@ -44,6 +45,16 @@ upload-model:
 	fi
 	aws s3 cp compiled_models/depth_anything_v2_vits_inf1_518.pt s3://wbg-model-checkpoints/
 	@echo "Model uploaded successfully to s3://wbg-model-checkpoints/"
+
+# Upload output_depth_inf1 directory to S3
+upload-output:
+	@echo "Uploading output_depth_inf1 directory to S3..."
+	@if [ ! -d "output_depth_inf1" ]; then \
+		echo "Error: output_depth_inf1 directory not found"; \
+		exit 1; \
+	fi
+	aws s3 cp output_depth_inf1/ s3://wbg-model-checkpoints/output_depth_inf1/ --recursive
+	@echo "Output directory uploaded successfully to s3://wbg-model-checkpoints/output_depth_inf1/"
 
 # Clean output directory
 clean:
