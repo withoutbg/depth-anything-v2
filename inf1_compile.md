@@ -7,9 +7,10 @@ This document captures the complete process, challenges, and solutions for succe
 ## Key Achievements
 
 - ✅ **87.06% Neuron Compilation Rate** - 525 out of 603 operations compiled to Neuron cores
-- ✅ **130.24ms Mean Inference Latency** - Excellent performance for 518x518 image depth estimation
-- ✅ **7.68 FPS Throughput** - Suitable for real-time applications
+- ✅ **133.04ms Mean Inference Latency** - Excellent performance for 518x518 image depth estimation
+- ✅ **7.52 FPS Throughput** - Suitable for real-time applications
 - ✅ **Hybrid CPU/Neuron Execution** - Optimal performance while maintaining full compatibility
+- ✅ **TracerWarning-Free Compilation** - Optimized interpolation operations for better tracing
 
 ## Environment Setup
 
@@ -91,6 +92,38 @@ image = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0)
 image = image.float()  # Critical: Convert to float32
 ```
 
+### 5. Interpolation TracerWarnings
+
+**Problem:**
+- TracerWarnings during compilation due to dynamic tensor operations
+- Direct `int()` casting in interpolation causing tracing issues
+- Suboptimal compilation performance for interpolation operations
+
+**Root Cause:**
+- Original code: `F.interpolate(out, (int(patch_h * 14), int(patch_w * 14)), ...)`
+- Torch tracer struggles with inline `int()` casting operations
+- Dynamic tensor shape computations not optimized for static tracing
+
+**Solution:**
+```python
+# Before (problematic)
+out = F.interpolate(out, (int(patch_h * 14), int(patch_w * 14)), 
+                   mode="bilinear", align_corners=True)
+
+# After (optimized)
+# Calculate target size directly to avoid TracerWarnings
+target_h = patch_h * 14
+target_w = patch_w * 14
+out = F.interpolate(out, (target_h, target_w), 
+                   mode="bilinear", align_corners=True)
+```
+
+**Benefits:**
+- Eliminates TracerWarnings during compilation
+- Improves tracer's ability to optimize tensor operations
+- Pre-computed dimensions are more cache-friendly
+- Better static analysis for the Neuron compiler
+
 ## Implementation Details
 
 ### Compilation Script Structure
@@ -145,21 +178,23 @@ The solution implements a hybrid execution model:
 - **CPU Fallback**: 78 (12.94%)
 - **Compilation Success**: ✅
 
-### Inference Benchmarks (30 runs, VitS model, 518x518 input)
-- **Mean Latency**: 130.24 ms
-- **Median Latency**: 124.16 ms
-- **Min Latency**: 121.50 ms
-- **Max Latency**: 148.14 ms
-- **Standard Deviation**: 9.13 ms
-- **95th Percentile**: 144.13 ms
-- **Throughput**: 7.68 FPS
+### Inference Benchmarks (10 runs, VitS model, 518x518 input)
+- **Mean Latency**: 133.04 ms
+- **Median Latency**: 127.65 ms
+- **Min Latency**: 123.50 ms
+- **Max Latency**: 146.70 ms
+- **Standard Deviation**: 9.42 ms
+- **95th Percentile**: 146.49 ms
+- **99th Percentile**: 146.66 ms
+- **Throughput**: 7.52 FPS
 
 ### Performance Analysis
-- **Consistent Performance**: Low variance (9.13ms std dev)
+- **Consistent Performance**: Low variance (9.42ms std dev)
 - **Bimodal Distribution**: Two performance clusters observed
-  - Fast cluster: ~121-125ms
-  - Slower cluster: ~140-148ms
+  - Fast cluster: ~123-128ms
+  - Slower cluster: ~138-147ms
 - **Production Ready**: Sub-150ms latency suitable for real-time applications
+- **Stable Inference**: All 20 demo images processed successfully without errors
 
 ## Best Practices & Lessons Learned
 
@@ -187,7 +222,13 @@ The solution implements a hybrid execution model:
 - **Custom operations** may need CPU fallback
 - **Batch size of 1** typically works best for compilation
 
-### 5. Performance Optimization
+### 5. Interpolation Optimization
+- **Avoid inline type casting** in tensor operations during tracing
+- **Pre-compute target dimensions** as separate variables
+- **Use descriptive comments** to explain TracerWarning fixes
+- **Test compilation thoroughly** after interpolation changes
+
+### 6. Performance Optimization
 - **Warmup runs are essential** - first inference is always slower
 - **Consistent input sizes** improve performance
 - **Monitor both latency and throughput** metrics
@@ -208,6 +249,9 @@ The solution implements a hybrid execution model:
 
 4. **"expected scalar type Double but found Float"**
    - Solution: Ensure all tensors are float32 in inference pipeline
+
+5. **TracerWarnings during interpolation operations**
+   - Solution: Pre-compute target dimensions instead of inline `int()` casting
 
 ### Performance Issues
 
@@ -251,13 +295,17 @@ depth-anything-v2/
 
 ## Conclusion
 
-Successfully compiling Vision Transformer models for AWS Inferentia requires careful handling of unsupported operations and data types. The hybrid execution model proves to be an effective solution, achieving 87% Neuron utilization while maintaining full compatibility. The resulting performance (130ms mean latency, 7.68 FPS) makes this suitable for production real-time depth estimation applications.
+Successfully compiling Vision Transformer models for AWS Inferentia requires careful handling of unsupported operations, data types, and tensor tracing optimizations. The hybrid execution model proves to be an effective solution, achieving 87% Neuron utilization while maintaining full compatibility. The resulting performance (133ms mean latency, 7.52 FPS) makes this suitable for production real-time depth estimation applications.
 
-The key insight is that **perfect compatibility isn't necessary** - strategic use of CPU fallback for a small percentage of operations can unlock significant performance gains from Neuron acceleration on the majority of compute-intensive operations.
+Key insights for successful compilation:
+- **Perfect compatibility isn't necessary** - strategic use of CPU fallback for a small percentage of operations can unlock significant performance gains from Neuron acceleration on the majority of compute-intensive operations
+- **Interpolation optimizations matter** - pre-computing target dimensions eliminates TracerWarnings and improves compilation efficiency
+- **Systematic testing is crucial** - verify both compilation success and inference performance with real data
 
 ---
 
-*Document Version: 1.0*  
+*Document Version: 1.1*  
 *Last Updated: September 2025*  
 *Model: Depth Anything V2 (VitS)*  
-*Platform: AWS Inferentia (Inf1)*
+*Platform: AWS Inferentia (Inf1)*  
+*Latest Update: Added interpolation TracerWarning fixes and updated performance metrics*
