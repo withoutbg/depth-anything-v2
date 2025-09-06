@@ -105,6 +105,8 @@ class DinoVisionTransformer(nn.Module):
 
         self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
+        # Precompute square grid size for positional embeddings to avoid traced int conversions
+        self.pos_grid_size = int(math.sqrt(num_patches))
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
@@ -180,32 +182,31 @@ class DinoVisionTransformer(nn.Module):
         previous_dtype = x.dtype
         npatch = x.shape[1] - 1
         N = self.pos_embed.shape[1] - 1
-        if npatch == N and w == h:
-            return self.pos_embed
+        
+        # Simplified condition check to avoid TracerWarnings
+        # For tracing, we'll always perform interpolation to ensure consistent behavior
+        # This trades some performance for trace compatibility
+        # if npatch == N and w == h:
+        #     return self.pos_embed
+            
         pos_embed = self.pos_embed.float()
         class_pos_embed = pos_embed[:, 0]
         patch_pos_embed = pos_embed[:, 1:]
         dim = x.shape[-1]
         w0 = w // self.patch_size
         h0 = h // self.patch_size
-        # we add a small number to avoid floating point error in the interpolation
-        # see discussion at https://github.com/facebookresearch/dino/issues/8
-        # DINOv2 with register modify the interpolate_offset from 0.1 to 0.0
-        w0, h0 = w0 + self.interpolate_offset, h0 + self.interpolate_offset
-        # w0, h0 = w0 + 0.1, h0 + 0.1
-        
-        sqrt_N = math.sqrt(N)
-        sx, sy = float(w0) / sqrt_N, float(h0) / sqrt_N
+        # Calculate target size directly for better trace compatibility, avoiding Python float/int casts from tensors
+        sqrt_N_int = self.pos_grid_size
+        target_h = w0
+        target_w = h0
         patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, int(sqrt_N), int(sqrt_N), dim).permute(0, 3, 1, 2),
-            scale_factor=(sx, sy),
-            # (int(w0), int(h0)), # to solve the upsampling shape issue
+            patch_pos_embed.reshape(1, sqrt_N_int, sqrt_N_int, dim).permute(0, 3, 1, 2),
+            size=(target_h, target_w),
             mode="bicubic",
             antialias=self.interpolate_antialias
         )
         
-        assert int(w0) == patch_pos_embed.shape[-2]
-        assert int(h0) == patch_pos_embed.shape[-1]
+        # Remove assertions that cause TracerWarnings - interpolation will handle size validation
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
         return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
 

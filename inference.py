@@ -107,8 +107,9 @@ def main():
         print(f"Error loading model: {e}")
         return 1
     
-    # Create output directory
-    os.makedirs(TARGET_DIR, exist_ok=True)
+    # Create output directory with model variant subdirectory
+    model_output_dir = os.path.join(TARGET_DIR, model_type)
+    os.makedirs(model_output_dir, exist_ok=True)
     
     # Get all image files
     image_files = get_image_files(SOURCE_DIR)
@@ -118,7 +119,7 @@ def main():
         return 1
     
     print(f"Found {len(image_files)} images to process")
-    print(f"Output directory: '{TARGET_DIR}'")
+    print(f"Output directory: '{model_output_dir}'")
     print("Starting inference...")
     
     # Process each image
@@ -126,10 +127,10 @@ def main():
     for i, image_path in enumerate(image_files, 1):
         print(f"Processing {i}/{len(image_files)}: {os.path.basename(image_path)}")
         
-        # Create output filename
+        # Create output filename in model variant subdirectory
         rel_path = os.path.relpath(image_path, SOURCE_DIR)
         output_name = os.path.splitext(rel_path)[0] + '_depth.png'
-        output_path = os.path.join(TARGET_DIR, output_name)
+        output_path = os.path.join(model_output_dir, output_name)
         
         # Create output subdirectories if needed
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -142,7 +143,7 @@ def main():
     
     print(f"\nInference completed!")
     print(f"Successfully processed: {successful}/{len(image_files)} images")
-    print(f"Results saved to: '{TARGET_DIR}'")
+    print(f"Results saved to: '{model_output_dir}'")
     
     return 0
 

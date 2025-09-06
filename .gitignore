@@ -192,3 +192,13 @@ wandb/
 # TensorBoard logs
 runs/
 logs/
+
+# image files
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.tif
+*.gif
+*.webp

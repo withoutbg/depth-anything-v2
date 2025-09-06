@@ -21,33 +21,39 @@ fi
 echo -e "${GREEN}Depth Anything V2 Model Downloader${NC}"
 echo "======================================"
 
-# Model information
-declare -A models=(
-    ["vits"]="https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/depth_anything_v2_vits.pth"
-    ["vitb"]="https://huggingface.co/depth-anything/Depth-Anything-V2-Base/resolve/main/depth_anything_v2_vitb.pth"
-    ["vitl"]="https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth"
-)
+# Model information functions
+get_model_url() {
+    case $1 in
+        vits) echo "https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/depth_anything_v2_vits.pth" ;;
+        vitb) echo "https://huggingface.co/depth-anything/Depth-Anything-V2-Base/resolve/main/depth_anything_v2_vitb.pth" ;;
+        vitl) echo "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth" ;;
+    esac
+}
 
-declare -A model_sizes=(
-    ["vits"]="24.8M"
-    ["vitb"]="97.5M"
-    ["vitl"]="335.3M"
-)
+get_model_size() {
+    case $1 in
+        vits) echo "24.8M" ;;
+        vitb) echo "97.5M" ;;
+        vitl) echo "335.3M" ;;
+    esac
+}
 
-declare -A model_names=(
-    ["vits"]="Depth-Anything-V2-Small"
-    ["vitb"]="Depth-Anything-V2-Base"
-    ["vitl"]="Depth-Anything-V2-Large"
-)
+get_model_name() {
+    case $1 in
+        vits) echo "Depth-Anything-V2-Small" ;;
+        vitb) echo "Depth-Anything-V2-Base" ;;
+        vitl) echo "Depth-Anything-V2-Large" ;;
+    esac
+}
 
 # Function to download a model
 download_model() {
     local model_key=$1
-    local url=${models[$model_key]}
+    local url=$(get_model_url $model_key)
     local filename="depth_anything_v2_${model_key}.pth"
     local filepath="${CHECKPOINT_DIR}/${filename}"
-    local model_name=${model_names[$model_key]}
-    local size=${model_sizes[$model_key]}
+    local model_name=$(get_model_name $model_key)
+    local size=$(get_model_size $model_key)
     
     echo -e "${YELLOW}Downloading ${model_name} (${size})...${NC}"
     

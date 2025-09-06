@@ -1,14 +1,15 @@
 # Depth Anything V2 Inference Makefile
 
-.PHONY: inference help clean setup
+.PHONY: inference help clean setup download-model
 
 # Default target
 help:
 	@echo "Available commands:"
-	@echo "  inference  - Run depth estimation inference on images"
-	@echo "  setup      - Create input/output directories"
-	@echo "  clean      - Remove output directory"
-	@echo "  help       - Show this help message"
+	@echo "  inference     - Run depth estimation inference on images"
+	@echo "  setup         - Create input/output directories"
+	@echo "  download-model - Download pre-trained model checkpoints"
+	@echo "  clean         - Remove output directory"
+	@echo "  help          - Show this help message"
 
 # Run inference
 inference:
@@ -26,6 +27,12 @@ setup:
 	@echo "Directories created:"
 	@echo "  input_images/ - Place your input images here"
 	@echo "  output_depth/ - Depth maps will be saved here"
+
+# Download model checkpoints
+download-model:
+	@echo "Downloading Depth Anything V2 model checkpoints..."
+	@chmod +x download_models.sh
+	./download_models.sh --all
 
 # Clean output directory
 clean:
