@@ -6,12 +6,67 @@ import glob
 import numpy as np
 import torch
 from pathlib import Path
+from PIL import Image
 
 from depth_anything_v2.dpt import DepthAnythingV2
 
 # Hardcoded directories
 SOURCE_DIR = "input_images"
 TARGET_DIR = "output_depth"
+
+def preprocess_for_depth_anything_v2(image_input, input_size=518):
+    """
+    Standalone preprocessing function for Depth Anything V2 model.
+    Only uses Pillow and numpy - no torchvision dependencies.
+    
+    Args:
+        image_input: Can be:
+            - str: Path to image file
+            - PIL.Image: PIL Image object  
+            - np.ndarray: Numpy array of shape (H, W, 3)
+        input_size: Model input size (default: 518, must be multiple of 14)
+    
+    Returns:
+        torch.Tensor: Preprocessed tensor of shape (1, 3, input_size, input_size)
+    """
+    
+    # Ensure input_size is multiple of 14 (Vision Transformer patch size)
+    input_size = ((input_size + 13) // 14) * 14
+    
+    # Handle different input types
+    if isinstance(image_input, str):
+        # Load from file path
+        image = Image.open(image_input).convert('RGB')
+    elif isinstance(image_input, Image.Image):
+        # PIL Image
+        image = image_input.convert('RGB')
+    elif isinstance(image_input, np.ndarray):
+        # Numpy array - handle both uint8 and float formats
+        if image_input.dtype == np.uint8:
+            image = Image.fromarray(image_input)
+        else:
+            # Assume float in [0,1] range, convert to uint8
+            image_uint8 = (image_input * 255).astype(np.uint8)
+            image = Image.fromarray(image_uint8)
+    else:
+        raise ValueError(f"Unsupported input type: {type(image_input)}")
+    
+    # Resize to exact target size (no aspect ratio preservation for fixed output)
+    image = image.resize((input_size, input_size), Image.BICUBIC)
+    
+    # Convert to numpy and normalize to [0, 1]
+    image_array = np.array(image, dtype=np.float32) / 255.0
+    
+    # Apply ImageNet normalization (same as original model training)
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    image_array = (image_array - mean) / std
+    
+    # Convert from HWC to CHW and add batch dimension
+    image_array = np.transpose(image_array, (2, 0, 1))
+    image_tensor = torch.from_numpy(image_array).float().unsqueeze(0)  # Ensure float32
+    
+    return image_tensor
 
 def get_model_type():
     """Prompt user to select model type"""
@@ -71,23 +126,33 @@ def get_image_files(source_dir):
     return sorted(image_files)
 
 def process_image(depth_anything, image_path, output_path, input_size=518):
-    """Process a single image"""
-    # Read image
-    raw_image = cv2.imread(image_path)
-    if raw_image is None:
-        print(f"Warning: Could not read image {image_path}")
+    """Process a single image using Pillow-only preprocessing"""
+    try:
+        # Get device
+        DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+        
+        # Preprocess image using Pillow-only function
+        image_tensor = preprocess_for_depth_anything_v2(image_path, input_size=input_size)
+        image_tensor = image_tensor.to(DEVICE)
+        
+        # Run inference directly on model
+        with torch.no_grad():
+            depth = depth_anything.forward(image_tensor)
+            depth = depth.squeeze(0).cpu().numpy()  # Remove batch dimension
+        
+        # Normalize depth to 0-255 range
+        depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+        depth = depth.astype(np.uint8)
+        
+        # Save depth map as grayscale using Pillow
+        depth_image = Image.fromarray(depth, 'L')
+        depth_image.save(output_path)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Warning: Could not process image {image_path}: {e}")
         return False
-    
-    # Run inference
-    depth = depth_anything.infer_image(raw_image, input_size)
-    
-    # Normalize depth to 0-255 range
-    depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-    depth = depth.astype(np.uint8)
-    
-    # Save depth map as grayscale
-    cv2.imwrite(output_path, depth)
-    return True
 
 def main():
     """Main inference function"""
