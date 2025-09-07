@@ -192,9 +192,7 @@ class DepthAnythingV2(nn.Module):
         
         depth = self.forward(image)
         
-        depth = F.interpolate(depth[:, None], (h, w), mode="bilinear", align_corners=True)[0, 0]
-        
-        return depth.cpu().numpy()
+        return depth.squeeze(0).cpu().numpy()  # Remove batch dimension only
     
     def image2tensor(self, raw_image, input_size=518):        
         transform = Compose([
@@ -202,7 +200,7 @@ class DepthAnythingV2(nn.Module):
                 width=input_size,
                 height=input_size,
                 resize_target=False,
-                keep_aspect_ratio=True,
+                keep_aspect_ratio=False,  # Changed to False for fixed output size
                 ensure_multiple_of=14,
                 resize_method='lower_bound',
                 image_interpolation_method=cv2.INTER_CUBIC,
