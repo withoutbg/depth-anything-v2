@@ -10,9 +10,9 @@ from PIL import Image
 
 from depth_anything_v2.dpt import DepthAnythingV2
 
-# Hardcoded directories
-SOURCE_DIR = "input_images"
-TARGET_DIR = "output_depth"
+# Configurable directories from environment variables
+SOURCE_DIR = os.environ.get("SOURCE_DIR", "input_images")
+TARGET_DIR = os.environ.get("TARGET_DIR", "output_depth")
 
 def preprocess_for_depth_anything_v2(image_input, input_size=518):
     """
@@ -172,9 +172,8 @@ def main():
         print(f"Error loading model: {e}")
         return 1
     
-    # Create output directory with model variant subdirectory
-    model_output_dir = os.path.join(TARGET_DIR, model_type)
-    os.makedirs(model_output_dir, exist_ok=True)
+    # Create output directory
+    os.makedirs(TARGET_DIR, exist_ok=True)
     
     # Get all image files
     image_files = get_image_files(SOURCE_DIR)
@@ -184,21 +183,28 @@ def main():
         return 1
     
     print(f"Found {len(image_files)} images to process")
-    print(f"Output directory: '{model_output_dir}'")
+    print(f"Output directory: '{TARGET_DIR}'")
     print("Starting inference...")
     
     # Process each image
     successful = 0
+    skipped = 0
     for i, image_path in enumerate(image_files, 1):
         print(f"Processing {i}/{len(image_files)}: {os.path.basename(image_path)}")
         
-        # Create output filename in model variant subdirectory
+        # Create output filename
         rel_path = os.path.relpath(image_path, SOURCE_DIR)
-        output_name = os.path.splitext(rel_path)[0] + '_depth.png'
-        output_path = os.path.join(model_output_dir, output_name)
+        output_name = os.path.splitext(rel_path)[0] + '.png'
+        output_path = os.path.join(TARGET_DIR, output_name)
         
         # Create output subdirectories if needed
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Check if output file already exists (idempotent behavior)
+        if os.path.exists(output_path):
+            print(f"  Skipping (already exists): {output_name}")
+            skipped += 1
+            continue
         
         # Process image
         if process_image(depth_anything, image_path, output_path):
@@ -208,7 +214,9 @@ def main():
     
     print(f"\nInference completed!")
     print(f"Successfully processed: {successful}/{len(image_files)} images")
-    print(f"Results saved to: '{model_output_dir}'")
+    if skipped > 0:
+        print(f"Skipped (already exist): {skipped}/{len(image_files)} images")
+    print(f"Results saved to: '{TARGET_DIR}'")
     
     return 0
 

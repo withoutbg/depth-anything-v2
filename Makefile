@@ -12,14 +12,23 @@ help:
 	@echo "  upload-output - Upload output_depth_inf1 directory to S3 bucket"
 	@echo "  clean         - Remove output directory"
 	@echo "  help          - Show this help message"
+	@echo ""
+	@echo "Parameters:"
+	@echo "  SPLIT         - Dataset split to process (default: train)"
+	@echo "                  Usage: make inference SPLIT=val"
+	@echo "                  Available: train, val, test"
+
+# Dataset split parameter (default: train)
+SPLIT ?= train
 
 # Run inference
 inference:
 	@echo "Starting Depth Anything V2 inference..."
-	@echo "Source directory: input_images/"
-	@echo "Target directory: output_depth/"
+	@echo "Dataset split: $(SPLIT)"
+	@echo "Source directory: /media/imran/fastread/matting/$(SPLIT)/img/"
+	@echo "Target directory: /media/imran/fastread/matting/$(SPLIT)/depth-vits/"
 	@echo ""
-	uv run python inference.py
+	SOURCE_DIR="/media/imran/fastread/matting/$(SPLIT)/img/" TARGET_DIR="/media/imran/fastread/matting/$(SPLIT)/depth-vits/" uv run python inference.py
 
 # Setup directories
 setup:
